@@ -11,7 +11,7 @@ RUN go mod download
 
 COPY . .  
 
-RUN go build -o run ./...  # Build the Go application
+RUN go build -o run ./... 
 
 # Development stage
 FROM build as dev
@@ -29,4 +29,4 @@ WORKDIR /app
 
 COPY --from=build /app/run /app/run 
 
-CMD ["/app/run"]  # Run the application
+CMD ["/app/run"]

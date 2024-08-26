@@ -1,0 +1,90 @@
+definitions:
+  domain.OrderEvent:
+    properties:
+      created_at:
+        type: string
+      event_id:
+        type: string
+      order_id:
+        type: string
+      order_status:
+        $ref: '#/definitions/domain.OrderStatus'
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  domain.OrderStatus:
+    enum:
+    - cool_order_created
+    - sbu_verification_pending
+    - confirmed_by_mayor
+    - changed_my_mind
+    - failed
+    - chinazes
+    - give_my_money_back
+    type: string
+    x-enum-varnames:
+    - CoolOrderCreated
+    - SbuVerificationPending
+    - ConfirmedByMayor
+    - ChangedMyMind
+    - Failed
+    - Chinazes
+    - GiveMyMoneyBack
+  http.postEventRequest:
+    properties:
+      created_at:
+        type: string
+      event_id:
+        type: string
+      order_id:
+        type: string
+      order_status:
+        enum:
+        - cool_order_created
+        - sbu_verification_pending
+        - confirmed_by_mayor
+        - changed_my_mind
+        - failed
+        - chinazes
+        - give_my_money_back
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    required:
+    - created_at
+    - event_id
+    - order_id
+    - order_status
+    - updated_at
+    - user_id
+    type: object
+info:
+  contact: {}
+paths:
+  /webhooks/payments/orders:
+    post:
+      consumes:
+      - application/json
+      description: handle event from JustPay!
+      parameters:
+      - description: Event
+        in: body
+        name: event
+        required: true
+        schema:
+          $ref: '#/definitions/http.postEventRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.OrderEvent'
+      summary: handle event from JustPay!
+      tags:
+      - webhooks
+swagger: "2.0"
