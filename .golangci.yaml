@@ -1,0 +1,16 @@
+linters:
+  enable:
+    - gofmt
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - gosimple
+    - revive
+
+linters-settings:
+  revive:
+    confidence: 0.8
+
+issues:
+  exclude-use-default: false
