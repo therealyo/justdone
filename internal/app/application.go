@@ -6,14 +6,15 @@ import (
 	"github.com/therealyo/justdone/config"
 	"github.com/therealyo/justdone/domain"
 	"github.com/therealyo/justdone/infrastructure/database/postgres"
-	"github.com/therealyo/justdone/internal/console"
 	"github.com/therealyo/justdone/internal/inmemory"
+	"github.com/therealyo/justdone/internal/sse"
 	"github.com/therealyo/justdone/internal/usecase"
 )
 
 type Application struct {
-	Orders usecase.Orders
-	Events usecase.Events
+	Orders   usecase.Orders
+	Events   usecase.Events
+	Notifier domain.OrderObserver
 }
 
 func New(config *config.Config) (*Application, error) {
@@ -22,16 +23,20 @@ func New(config *config.Config) (*Application, error) {
 		return nil, err
 	}
 
+	sseNotifier := sse.NewSSENotifier()
+	orders := postgres.NewOrderRepository(db)
+
 	orderProcessor := domain.NewOrderProcessor(
-		postgres.NewOrderRepository(db),
+		orders,
 		postgres.NewEventRepository(db),
-		console.NewConsoleNotifier(),
+		sseNotifier,
 		inmemory.NewProcessedEvents(),
 		30*time.Second,
 	)
 
 	return &Application{
-		Orders: usecase.Orders{},
-		Events: usecase.NewEvents(orderProcessor),
+		Orders:   usecase.NewOrders(orders),
+		Events:   usecase.NewEvents(orderProcessor),
+		Notifier: sseNotifier,
 	}, nil
 }

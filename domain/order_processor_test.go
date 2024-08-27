@@ -41,6 +41,12 @@ func (s *InMemoryStorageOrders) Get(orderID string) (*domain.Order, error) {
 	return nil, nil
 }
 
+func (s *InMemoryStorageOrders) GetMany(filter *domain.OrderFilter) ([]domain.Order, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return nil, nil
+}
+
 func (s *InMemoryStorageOrders) Save(order *domain.Order) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

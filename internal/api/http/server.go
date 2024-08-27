@@ -46,7 +46,7 @@ func (s *Server) Setup() (*Server, error) {
 
 	ordersGroup.GET(
 		":order_id/events",
-		newGetOrderEventsHandler(s.app.Events, s.app.Orders, 1*time.Minute).handle,
+		newGetOrderEventsHandler(s.app.Orders, s.app.Notifier, 1*time.Minute).handle,
 	)
 	ordersGroup.GET(
 		"",

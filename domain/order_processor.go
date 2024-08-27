@@ -11,6 +11,7 @@ import (
 
 type OrderRepository interface {
 	Get(orderID string) (*Order, error)
+	GetMany(filter *OrderFilter) ([]Order, error)
 	Save(order *Order) error
 }
 
@@ -20,7 +21,14 @@ type EventRepository interface {
 	Delete(eventID string) error
 }
 
+type OrderEventsSubscriber struct {
+	EventChan  chan OrderEvent
+	Disconnect chan bool
+	Timeout    time.Duration
+}
 type OrderObserver interface {
+	RegisterClient(orderID string, client OrderEventsSubscriber)
+	UnregisterClient(orderID string, client OrderEventsSubscriber)
 	Notify(order *Order, event OrderEvent)
 }
 
@@ -178,8 +186,8 @@ func NewOrderProcessor(
 	observer OrderObserver,
 	processing ProcessedEvents,
 	finalizeTimeout time.Duration,
-) OrderProcessor {
-	return OrderProcessor{
+) *OrderProcessor {
+	return &OrderProcessor{
 		orderRepo:       orderRepo,
 		eventRepo:       eventRepo,
 		observer:        observer,

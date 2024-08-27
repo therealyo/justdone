@@ -17,6 +17,10 @@ func NewOrderRepository(db *sql.DB) OrderRepository {
 	return OrderRepository{db: db}
 }
 
+func (r OrderRepository) GetMany(filter *domain.OrderFilter) ([]domain.Order, error) {
+	panic("unimplemented")
+}
+
 func (r OrderRepository) Get(orderID string) (*domain.Order, error) {
 	query := `
 		SELECT o.order_id, o.user_id, o.status, o.is_final, o.created_at, o.updated_at,
@@ -153,3 +157,5 @@ func (r OrderRepository) Save(order *domain.Order) error {
 
 	return nil
 }
+
+var _ domain.OrderRepository = new(OrderRepository)

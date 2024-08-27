@@ -16,20 +16,11 @@ type getOrderEventsRequest struct {
 }
 
 type getOrderEventsHandler struct {
-	events  usecase.Events
-	orders  usecase.Orders
-	timeout time.Duration
+	orders   usecase.Orders
+	timeout  time.Duration
+	notifier domain.OrderObserver
 }
 
-// GetEventsHandler godoc
-// @Summary Get order events
-// @Description Get events for a specific order
-// @Tags orders
-// @Accept json
-// @Produce json
-// @Param order_id path string true "Order ID" format(uuid)
-// @Success 200 {object} []domain.OrderEvent
-// @Router /orders/{order_id}/events [get]
 func (h getOrderEventsHandler) handle(c *gin.Context) {
 	var req getOrderEventsRequest
 	if err := c.ShouldBindUri(&req); err != nil {
@@ -37,14 +28,26 @@ func (h getOrderEventsHandler) handle(c *gin.Context) {
 		return
 	}
 
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("Transfer-Encoding", "chunked")
+	order, err := h.orders.GetOrder(req.OrderID)
+	if err != nil && err != domain.ErrOrderNotFound {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if order != nil && order.IsFinal {
+		c.JSON(http.StatusOK, order.Events)
+		return
+	}
 
 	clientChan := make(chan domain.OrderEvent)
-	// h.events.RegisterSSEClient(req.OrderID, clientChan)
-	// defer h.events.UnregisterSSEClient(req.OrderID, clientChan)
+	client := domain.OrderEventsSubscriber{
+		EventChan:  clientChan,
+		Disconnect: make(chan bool),
+		Timeout:    h.timeout,
+	}
+
+	h.notifier.RegisterClient(req.OrderID, client)
+	defer h.notifier.UnregisterClient(req.OrderID, client)
 
 	c.Stream(func(w io.Writer) bool {
 		select {
@@ -52,13 +55,12 @@ func (h getOrderEventsHandler) handle(c *gin.Context) {
 			data, _ := json.Marshal(event)
 			c.SSEvent("message", string(data))
 			return true
-		case <-time.After(h.timeout):
-			c.SSEvent("error", "timeout")
+		case <-client.Disconnect:
 			return false
 		}
 	})
 }
 
-func newGetOrderEventsHandler(events usecase.Events, orders usecase.Orders, timeout time.Duration) getOrderEventsHandler {
-	return getOrderEventsHandler{events: events, orders: orders, timeout: timeout}
+func newGetOrderEventsHandler(orders usecase.Orders, notifier domain.OrderObserver, timeout time.Duration) getOrderEventsHandler {
+	return getOrderEventsHandler{orders: orders, notifier: notifier, timeout: timeout}
 }

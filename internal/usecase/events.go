@@ -6,10 +6,10 @@ import (
 )
 
 type Events struct {
-	processor domain.OrderProcessor
+	processor *domain.OrderProcessor
 }
 
-func NewEvents(orderProcessor domain.OrderProcessor) Events {
+func NewEvents(orderProcessor *domain.OrderProcessor) Events {
 	return Events{
 		processor: orderProcessor,
 	}

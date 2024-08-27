@@ -11,3 +11,7 @@ type OrderEvent struct {
 	UpdatedAt   time.Time   `json:"updated_at"`
 	IsFinal     bool        `json:"is_final"`
 }
+
+// func (e *OrderEvent) IsFinal() bool {
+// 	return
+// }

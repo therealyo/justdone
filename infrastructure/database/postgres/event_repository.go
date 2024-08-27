@@ -72,3 +72,5 @@ func (r EventRepository) Delete(eventID string) error {
 
 	return nil
 }
+
+var _ domain.EventRepository = new(EventRepository)
