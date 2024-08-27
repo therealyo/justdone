@@ -38,17 +38,11 @@ func (h postEventHandler) handle(c *gin.Context) {
 		return
 	}
 
-	orderStatus, err := domain.ParseOrderStatus(req.OrderStatus)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	err = h.events.Create(&domain.OrderEvent{
+	err := h.events.Create(&domain.OrderEvent{
 		EventID:     req.EventID,
 		OrderID:     req.OrderID,
 		UserID:      req.UserID,
-		OrderStatus: orderStatus,
+		OrderStatus: domain.OrderStatus(req.OrderStatus),
 		CreatedAt:   req.CreatedAt,
 		UpdatedAt:   req.UpdatedAt,
 	})
@@ -56,8 +50,10 @@ func (h postEventHandler) handle(c *gin.Context) {
 	switch {
 	case err == domain.ErrEventConflict:
 		c.AbortWithStatusJSON(http.StatusConflict, gin.H{"error": err.Error()})
-	case err != nil && err.Error() == "HTTP 410":
-		c.AbortWithStatusJSON(http.StatusGone, gin.H{"error": "Order is already in final state"})
+	case err == domain.ErrOrderAlreadyFinal:
+		c.AbortWithStatusJSON(http.StatusGone, gin.H{"error": err.Error()})
+	case err == domain.ErrOrderNotFound:
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": err.Error()})
 	case err != nil:
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	default:

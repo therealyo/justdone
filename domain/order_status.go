@@ -2,16 +2,16 @@ package domain
 
 import "errors"
 
-type OrderStatus int
+type OrderStatus string
 
 const (
-	CoolOrderCreated OrderStatus = iota + 1
-	SbuVerificationPending
-	ConfirmedByMayor
-	Chinazes
-	ChangedMyMind
-	Failed
-	GiveMyMoneyBack
+	CoolOrderCreated       OrderStatus = "cool_order_created"
+	SbuVerificationPending OrderStatus = "sbu_verification_pending"
+	ConfirmedByMayor       OrderStatus = "confirmed_by_mayor"
+	Chinazes               OrderStatus = "chinazes"
+	ChangedMyMind          OrderStatus = "changed_my_mind"
+	Failed                 OrderStatus = "failed"
+	GiveMyMoneyBack        OrderStatus = "give_my_money_back"
 )
 
 func (status OrderStatus) isCancel() bool {
@@ -33,17 +33,12 @@ var orderStatusStrings = map[string]OrderStatus{
 }
 
 func (os OrderStatus) String() string {
-	for k, v := range orderStatusStrings {
-		if v == os {
-			return k
-		}
-	}
-	return "unknown"
+	return string(os)
 }
 
 func ParseOrderStatus(status string) (OrderStatus, error) {
 	if val, ok := orderStatusStrings[status]; ok {
 		return val, nil
 	}
-	return 0, errors.New("invalid order status")
+	return "", errors.New("invalid order status")
 }

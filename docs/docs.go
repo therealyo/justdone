@@ -96,6 +96,9 @@ const docTemplate = `{
                 "event_id": {
                     "type": "string"
                 },
+                "is_final": {
+                    "type": "boolean"
+                },
                 "order_id": {
                     "type": "string"
                 },
@@ -116,18 +119,18 @@ const docTemplate = `{
                 "cool_order_created",
                 "sbu_verification_pending",
                 "confirmed_by_mayor",
+                "chinazes",
                 "changed_my_mind",
                 "failed",
-                "chinazes",
                 "give_my_money_back"
             ],
             "x-enum-varnames": [
                 "CoolOrderCreated",
                 "SbuVerificationPending",
                 "ConfirmedByMayor",
+                "Chinazes",
                 "ChangedMyMind",
                 "Failed",
-                "Chinazes",
                 "GiveMyMoneyBack"
             ]
         },

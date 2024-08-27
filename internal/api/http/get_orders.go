@@ -76,7 +76,7 @@ func (req getOrdersRequest) build() (*domain.OrderFilter, error) {
 		for i, s := range req.Status {
 			status, err := domain.ParseOrderStatus(s)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("invalid status value: %s", s)
 			}
 			statuses[i] = status
 		}

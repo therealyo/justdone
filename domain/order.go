@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/therealyo/justdone/pkg/array"
@@ -18,6 +19,7 @@ type Order struct {
 }
 
 func (o *Order) isValidSequence() bool {
+	fmt.Println("events: ", o.Events)
 	requiredSequence := []OrderStatus{
 		CoolOrderCreated,
 		SbuVerificationPending,

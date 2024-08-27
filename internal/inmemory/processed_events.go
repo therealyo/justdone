@@ -6,33 +6,33 @@ import (
 	"github.com/therealyo/justdone/domain"
 )
 
-var _ domain.ProcessedEvents = new(InMemoryProcessedEvents)
+var _ domain.ProcessedEvents = new(ProcessedEvents)
 
-type InMemoryProcessedEvents struct {
+type ProcessedEvents struct {
 	mu     sync.Mutex
 	events map[string]bool
 }
 
-func (c *InMemoryProcessedEvents) Add(eventID string) {
+func (c *ProcessedEvents) Add(eventID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.events[eventID] = true
 }
 
-func (c *InMemoryProcessedEvents) Contains(eventID string) bool {
+func (c *ProcessedEvents) Contains(eventID string) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.events[eventID]
 }
 
-func (c *InMemoryProcessedEvents) Remove(eventID string) {
+func (c *ProcessedEvents) Remove(eventID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.events, eventID)
 }
 
-func NewInMemoryProcessedEvents() *InMemoryProcessedEvents {
-	return &InMemoryProcessedEvents{
+func NewProcessedEvents() *ProcessedEvents {
+	return &ProcessedEvents{
 		events: make(map[string]bool),
 	}
 }

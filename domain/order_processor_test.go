@@ -1,12 +1,12 @@
 package domain_test
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/therealyo/justdone/domain"
+	"github.com/therealyo/justdone/internal/console"
 	"github.com/therealyo/justdone/internal/inmemory"
 )
 
@@ -74,12 +74,6 @@ func (s *InMemoryStorageEvents) Delete(eventID string) error {
 	return nil
 }
 
-type ConsoleNotifier struct{}
-
-func (c *ConsoleNotifier) Notify(order *domain.Order, event domain.OrderEvent) {
-	fmt.Printf("Order %s has been updated with status %s, isFinal: %t\n", order.OrderID, event.OrderStatus.String(), order.IsFinal)
-}
-
 func sendEvent(event domain.OrderEvent) domain.OrderEvent {
 	time.Sleep(500 * time.Millisecond)
 	return event
@@ -88,8 +82,8 @@ func sendEvent(event domain.OrderEvent) domain.OrderEvent {
 func TestEnforcesCorrectSequence(t *testing.T) {
 	storageOrders := NewInMemoryOrders()
 	storageEvents := NewInMemoryEvents()
-	notifier := &ConsoleNotifier{}
-	processedEvents := inmemory.NewInMemoryProcessedEvents()
+	notifier := console.NewConsoleNotifier()
+	processedEvents := inmemory.NewProcessedEvents()
 	processor := domain.NewOrderProcessor(storageOrders, storageEvents, notifier, processedEvents, 5*time.Second)
 
 	event1 := domain.OrderEvent{
@@ -172,11 +166,131 @@ func TestEnforcesCorrectSequence(t *testing.T) {
 
 }
 
+func TestInvalidInitialEvent(t *testing.T) {
+	storageOrders := NewInMemoryOrders()
+	storageEvents := NewInMemoryEvents()
+	notifier := console.NewConsoleNotifier()
+	processedEvents := inmemory.NewProcessedEvents()
+	processor := domain.NewOrderProcessor(storageOrders, storageEvents, notifier, processedEvents, 5*time.Second)
+
+	event := domain.OrderEvent{
+		EventID:     "event1",
+		OrderID:     "order1",
+		UserID:      "user1",
+		OrderStatus: domain.ConfirmedByMayor,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	if err := processor.HandleEvent(sendEvent(event)); err == nil {
+		if err != domain.ErrOrderNotFound {
+			t.Fatalf("Expected error when processing an out-of-sequence initial event to be ErrOrderNotFound, but got %v", err)
+		}
+		t.Fatalf("Expected error when processing an out-of-sequence initial event, but got none")
+	}
+
+	order, err := storageOrders.Get(event.OrderID)
+	if err != nil {
+		t.Fatalf("Failed to retrieve order after processing invalid initial event: %v", err)
+	}
+
+	if order != nil {
+		t.Errorf("Expected no order to be created, but got one with status: %v", order.Status)
+	}
+
+}
+
+func TestConcurrentEventProcessing(t *testing.T) {
+	storageOrders := NewInMemoryOrders()
+	storageEvents := NewInMemoryEvents()
+	notifier := console.NewConsoleNotifier()
+	processedEvents := inmemory.NewProcessedEvents()
+	processor := domain.NewOrderProcessor(storageOrders, storageEvents, notifier, processedEvents, 5*time.Second)
+
+	initialEvent := domain.OrderEvent{
+		EventID:     "initialEvent",
+		OrderID:     "order1",
+		UserID:      "user1",
+		OrderStatus: domain.CoolOrderCreated,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	if err := processor.HandleEvent(initialEvent); err != nil {
+		t.Fatalf("Failed to process initialEvent: %v", err)
+	}
+
+	sbuVerificationEvent := domain.OrderEvent{
+		EventID:     "event2",
+		OrderID:     "order1",
+		UserID:      "user1",
+		OrderStatus: domain.SbuVerificationPending,
+		CreatedAt:   time.Now().Add(1 * time.Minute),
+		UpdatedAt:   time.Now().Add(1 * time.Minute),
+	}
+
+	confirmedByMayorEvent := domain.OrderEvent{
+		EventID:     "event3",
+		OrderID:     "order1",
+		UserID:      "user1",
+		OrderStatus: domain.ConfirmedByMayor,
+		CreatedAt:   time.Now().Add(2 * time.Minute),
+		UpdatedAt:   time.Now().Add(2 * time.Minute),
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		if err := processor.HandleEvent(sbuVerificationEvent); err != nil {
+			t.Logf("Failed to process SbuVerificationPending event: %v", err)
+		} else {
+			t.Log("Successfully processed SbuVerificationPending event")
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := processor.HandleEvent(confirmedByMayorEvent); err != nil {
+			t.Logf("Failed to process ConfirmedByMayor event: %v", err)
+		} else {
+			t.Log("Successfully processed ConfirmedByMayor event")
+		}
+	}()
+
+	wg.Wait()
+
+	order, err := storageOrders.Get("order1")
+	if err != nil {
+		t.Fatalf("Failed to retrieve order after concurrent processing: %v", err)
+	}
+
+	if order.Status != domain.ConfirmedByMayor {
+		t.Errorf("Expected order status to be ConfirmedByMayor, got %v", order.Status)
+	}
+
+	if len(order.Events) != 3 {
+		t.Errorf("Expected 3 events to be processed, but got %d", len(order.Events))
+	}
+
+	expectedSequence := []domain.OrderStatus{
+		domain.CoolOrderCreated,
+		domain.SbuVerificationPending,
+		domain.ConfirmedByMayor,
+	}
+	for i, event := range order.Events {
+		if event.OrderStatus != expectedSequence[i] {
+			t.Errorf("Expected event %d to have status %v, got %v", i, expectedSequence[i], event.OrderStatus)
+		}
+	}
+}
+
 func TestCancelingEventInBetween(t *testing.T) {
 	storageOrders := NewInMemoryOrders()
 	storageEvents := NewInMemoryEvents()
-	notifier := &ConsoleNotifier{}
-	processedEvents := inmemory.NewInMemoryProcessedEvents()
+	notifier := console.NewConsoleNotifier()
+	processedEvents := inmemory.NewProcessedEvents()
 	processor := domain.NewOrderProcessor(storageOrders, storageEvents, notifier, processedEvents, 5*time.Second)
 
 	event1 := domain.OrderEvent{
@@ -237,8 +351,8 @@ func TestCancelingEventInBetween(t *testing.T) {
 func TestGiveMyMoneyBack(t *testing.T) {
 	storageOrders := NewInMemoryOrders()
 	storageEvents := NewInMemoryEvents()
-	notifier := &ConsoleNotifier{}
-	processedEvents := inmemory.NewInMemoryProcessedEvents()
+	notifier := console.NewConsoleNotifier()
+	processedEvents := inmemory.NewProcessedEvents()
 	processor := domain.NewOrderProcessor(storageOrders, storageEvents, notifier, processedEvents, 5*time.Second)
 
 	event1 := domain.OrderEvent{
@@ -325,8 +439,8 @@ func TestGiveMyMoneyBack(t *testing.T) {
 func TestChinazesFinalization(t *testing.T) {
 	storageOrders := NewInMemoryOrders()
 	storageEvents := NewInMemoryEvents()
-	notifier := &ConsoleNotifier{}
-	processedEvents := inmemory.NewInMemoryProcessedEvents()
+	notifier := console.NewConsoleNotifier()
+	processedEvents := inmemory.NewProcessedEvents()
 	processor := domain.NewOrderProcessor(storageOrders, storageEvents, notifier, processedEvents, 5*time.Second)
 
 	event1 := domain.OrderEvent{
@@ -402,8 +516,8 @@ func TestChinazesFinalization(t *testing.T) {
 func TestConcurrentProcessing(t *testing.T) {
 	storageOrders := NewInMemoryOrders()
 	storageEvents := NewInMemoryEvents()
-	notifier := &ConsoleNotifier{}
-	processedEvents := inmemory.NewInMemoryProcessedEvents()
+	notifier := console.NewConsoleNotifier()
+	processedEvents := inmemory.NewProcessedEvents()
 	processor := domain.NewOrderProcessor(storageOrders, storageEvents, notifier, processedEvents, 5*time.Second)
 
 	event := domain.OrderEvent{

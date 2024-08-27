@@ -2,13 +2,12 @@ package postgres
 
 import (
 	"database/sql"
-	"log"
 )
 
-func New(connection string) *sql.DB {
+func New(connection string) (*sql.DB, error) {
 	db, err := sql.Open("postgres", connection)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return db
+	return db, nil
 }

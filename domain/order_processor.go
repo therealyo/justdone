@@ -3,6 +3,7 @@ package domain
 import (
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -35,6 +36,8 @@ type OrderProcessor struct {
 	observer        OrderObserver
 	processing      ProcessedEvents
 	finalizeTimeout time.Duration
+
+	mu sync.Mutex
 }
 
 func (op *OrderProcessor) HandleEvent(event OrderEvent) error {
@@ -46,6 +49,9 @@ func (op *OrderProcessor) HandleEvent(event OrderEvent) error {
 	defer op.processing.Remove(event.EventID)
 
 	if err := op.processEvent(event); err != nil {
+		if IsDomainError(err) {
+			return err
+		}
 		if deleteErr := op.eventRepo.Delete(event.EventID); deleteErr != nil {
 			return errors.Wrap(deleteErr, "delete event")
 		}
@@ -56,9 +62,8 @@ func (op *OrderProcessor) HandleEvent(event OrderEvent) error {
 }
 
 func (op *OrderProcessor) processEvent(event OrderEvent) error {
-	if err := op.eventRepo.Create(event); err != nil {
-		return errors.Wrap(err, "save event")
-	}
+	op.mu.Lock()
+	defer op.mu.Unlock()
 
 	order, err := op.orderRepo.Get(event.OrderID)
 	if err != nil {
@@ -66,17 +71,29 @@ func (op *OrderProcessor) processEvent(event OrderEvent) error {
 	}
 
 	if order == nil {
-		order = &Order{
-			OrderID:   event.OrderID,
-			UserID:    event.UserID,
-			Status:    CoolOrderCreated,
-			CreatedAt: event.CreatedAt,
-			UpdatedAt: event.UpdatedAt,
+		if event.OrderStatus == CoolOrderCreated {
+			order = &Order{
+				OrderID:   event.OrderID,
+				UserID:    event.UserID,
+				Status:    CoolOrderCreated,
+				CreatedAt: event.CreatedAt,
+				UpdatedAt: event.UpdatedAt,
+			}
+
+			if err := op.orderRepo.Save(order); err != nil {
+				return errors.Wrap(err, "save new order")
+			}
+		} else {
+			return ErrOrderNotFound
 		}
 	}
 
 	if order.IsFinal {
 		return ErrOrderAlreadyFinal
+	}
+
+	if err := op.eventRepo.Create(event); err != nil {
+		return errors.Wrap(err, "save event")
 	}
 
 	order.Events = append(order.Events, event)
@@ -114,14 +131,17 @@ func (op *OrderProcessor) processEvent(event OrderEvent) error {
 		if err := op.orderRepo.Save(order); err != nil {
 			return errors.Wrap(err, "save order")
 		}
-		op.observer.Notify(order, lastEvent)
 
+		op.observer.Notify(order, lastEvent)
 	}
 	return nil
 }
 
 func (op *OrderProcessor) waitAndFinalize(order *Order, lastEvent OrderEvent) {
 	time.Sleep(op.finalizeTimeout)
+
+	op.mu.Lock()
+	defer op.mu.Unlock()
 
 	finalOrder, err := op.orderRepo.Get(order.OrderID)
 	if err != nil || finalOrder == nil {
@@ -158,8 +178,8 @@ func NewOrderProcessor(
 	observer OrderObserver,
 	processing ProcessedEvents,
 	finalizeTimeout time.Duration,
-) *OrderProcessor {
-	return &OrderProcessor{
+) OrderProcessor {
+	return OrderProcessor{
 		orderRepo:       orderRepo,
 		eventRepo:       eventRepo,
 		observer:        observer,
