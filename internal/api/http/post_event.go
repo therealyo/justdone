@@ -9,6 +9,10 @@ import (
 	"github.com/therealyo/justdone/internal/usecase"
 )
 
+type postEventHandler struct {
+	events *usecase.Event
+}
+
 type postEventRequest struct {
 	EventID     string    `json:"event_id" binding:"required,uuid"`
 	OrderID     string    `json:"order_id" binding:"required,uuid"`
@@ -27,26 +31,28 @@ type postEventRequest struct {
 // @Param        event   body      postEventRequest  true  "Event"
 // @Success      200  {object}  domain.OrderEvent
 // @Router       /webhooks/payments/orders [post]
-func PostEventHandler(events *usecase.Event) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var req postEventRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		if err := events.Handle(&domain.OrderEvent{
-			EventID:     req.EventID,
-			OrderID:     req.OrderID,
-			UserID:      req.UserID,
-			OrderStatus: domain.OrderStatus(req.OrderStatus),
-			CreatedAt:   req.CreatedAt,
-			UpdatedAt:   req.UpdatedAt,
-		}); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"message": "Event created"})
+func (h postEventHandler) handle(c *gin.Context) {
+	var req postEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
+
+	if err := h.events.Create(&domain.OrderEvent{
+		EventID:     req.EventID,
+		OrderID:     req.OrderID,
+		UserID:      req.UserID,
+		OrderStatus: domain.OrderStatus(req.OrderStatus),
+		CreatedAt:   req.CreatedAt,
+		UpdatedAt:   req.UpdatedAt,
+	}); err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Event created"})
+}
+
+func newPostEventHandler(events *usecase.Event) postEventHandler {
+	return postEventHandler{events: events}
 }

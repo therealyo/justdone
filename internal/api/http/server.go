@@ -1,6 +1,8 @@
 package http
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/therealyo/justdone/docs"
 	"github.com/therealyo/justdone/internal/app"
@@ -35,7 +37,21 @@ func (s *Server) Setup() (*Server, error) {
 		})
 	})
 
-	s.router.POST("/webhooks/payments/orders", PostEventHandler(s.app.Events))
+	s.router.POST(
+		"/webhooks/payments/orders",
+		newPostEventHandler(s.app.Events).handle,
+	)
+
+	ordersGroup := s.router.Group("/orders")
+
+	ordersGroup.GET(
+		":order_id/events",
+		newGetOrderEventsHandler(s.app.Events, s.app.Orders, 1*time.Minute).handle,
+	)
+	ordersGroup.GET(
+		"",
+		newGetOrdersHandler(s.app.Orders).handle,
+	)
 
 	s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
