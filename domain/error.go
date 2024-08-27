@@ -4,5 +4,5 @@ import "errors"
 
 var (
 	ErrEventConflict     = errors.New("event already exists")
-	ErrOrderAlreadyFinal = errors.New("order already final")
+	ErrOrderAlreadyFinal = errors.New("order already in final state")
 )

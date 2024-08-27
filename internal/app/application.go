@@ -6,13 +6,13 @@ import (
 )
 
 type Application struct {
-	Orders *usecase.Order
-	Events *usecase.Event
+	Orders usecase.Orders
+	Events usecase.Events
 }
 
 func New(config *config.Config) (*Application, error) {
 	return &Application{
-		Orders: &usecase.Order{},
-		Events: &usecase.Event{},
+		Orders: usecase.Orders{},
+		Events: usecase.Events{},
 	}, nil
 }

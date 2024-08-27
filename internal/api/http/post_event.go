@@ -10,7 +10,7 @@ import (
 )
 
 type postEventHandler struct {
-	events *usecase.Event
+	events usecase.Events
 }
 
 type postEventRequest struct {
@@ -38,21 +38,33 @@ func (h postEventHandler) handle(c *gin.Context) {
 		return
 	}
 
-	if err := h.events.Create(&domain.OrderEvent{
-		EventID:     req.EventID,
-		OrderID:     req.OrderID,
-		UserID:      req.UserID,
-		OrderStatus: domain.OrderStatus(req.OrderStatus),
-		CreatedAt:   req.CreatedAt,
-		UpdatedAt:   req.UpdatedAt,
-	}); err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	orderStatus, err := domain.ParseOrderStatus(req.OrderStatus)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Event created"})
+	err = h.events.Create(&domain.OrderEvent{
+		EventID:     req.EventID,
+		OrderID:     req.OrderID,
+		UserID:      req.UserID,
+		OrderStatus: orderStatus,
+		CreatedAt:   req.CreatedAt,
+		UpdatedAt:   req.UpdatedAt,
+	})
+
+	switch {
+	case err == domain.ErrEventConflict:
+		c.AbortWithStatusJSON(http.StatusConflict, gin.H{"error": err.Error()})
+	case err != nil && err.Error() == "HTTP 410":
+		c.AbortWithStatusJSON(http.StatusGone, gin.H{"error": "Order is already in final state"})
+	case err != nil:
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	default:
+		c.JSON(http.StatusOK, gin.H{"message": "Event created"})
+	}
 }
 
-func newPostEventHandler(events *usecase.Event) postEventHandler {
+func newPostEventHandler(events usecase.Events) postEventHandler {
 	return postEventHandler{events: events}
 }

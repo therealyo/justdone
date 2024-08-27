@@ -16,8 +16,8 @@ type getOrderEventsRequest struct {
 }
 
 type getOrderEventsHandler struct {
-	events  *usecase.Event
-	orders  *usecase.Order
+	events  usecase.Events
+	orders  usecase.Orders
 	timeout time.Duration
 }
 
@@ -43,8 +43,8 @@ func (h getOrderEventsHandler) handle(c *gin.Context) {
 	c.Header("Transfer-Encoding", "chunked")
 
 	clientChan := make(chan domain.OrderEvent)
-	h.events.RegisterSSEClient(req.OrderID, clientChan)
-	defer h.events.UnregisterSSEClient(req.OrderID, clientChan)
+	// h.events.RegisterSSEClient(req.OrderID, clientChan)
+	// defer h.events.UnregisterSSEClient(req.OrderID, clientChan)
 
 	c.Stream(func(w io.Writer) bool {
 		select {
@@ -59,6 +59,6 @@ func (h getOrderEventsHandler) handle(c *gin.Context) {
 	})
 }
 
-func newGetOrderEventsHandler(events *usecase.Event, orders *usecase.Order, timeout time.Duration) getOrderEventsHandler {
+func newGetOrderEventsHandler(events usecase.Events, orders usecase.Orders, timeout time.Duration) getOrderEventsHandler {
 	return getOrderEventsHandler{events: events, orders: orders, timeout: timeout}
 }

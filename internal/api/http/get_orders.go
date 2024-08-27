@@ -10,7 +10,7 @@ import (
 )
 
 type getOrdersHandler struct {
-	orders *usecase.Order
+	orders usecase.Orders
 }
 
 type getOrdersRequest struct {
@@ -35,7 +35,13 @@ func (h getOrdersHandler) handle(c *gin.Context) {
 		return
 	}
 
-	orders, err := h.orders.GetOrders(req.build())
+	filters, err := req.build()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	orders, err := h.orders.GetOrders(filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -56,7 +62,7 @@ func (req getOrdersRequest) validate() error {
 	return nil
 }
 
-func (req getOrdersRequest) build() *domain.OrderFilter {
+func (req getOrdersRequest) build() (*domain.OrderFilter, error) {
 	filterOptions := []domain.FilterOption{
 		domain.WithUserID(req.UserID),
 		domain.WithLimit(req.Limit),
@@ -68,7 +74,11 @@ func (req getOrdersRequest) build() *domain.OrderFilter {
 	if len(req.Status) > 0 {
 		statuses := make([]domain.OrderStatus, len(req.Status))
 		for i, s := range req.Status {
-			statuses[i] = domain.OrderStatus(s)
+			status, err := domain.ParseOrderStatus(s)
+			if err != nil {
+				return nil, err
+			}
+			statuses[i] = status
 		}
 		filterOptions = append(filterOptions, domain.WithStatus(statuses...))
 	}
@@ -77,9 +87,9 @@ func (req getOrdersRequest) build() *domain.OrderFilter {
 		filterOptions = append(filterOptions, domain.WithIsFinal(*req.IsFinal))
 	}
 
-	return domain.NewOrderFilter(filterOptions...)
+	return domain.NewOrderFilter(filterOptions...), nil
 }
 
-func newGetOrdersHandler(orders *usecase.Order) getOrdersHandler {
+func newGetOrdersHandler(orders usecase.Orders) getOrdersHandler {
 	return getOrdersHandler{orders: orders}
 }
