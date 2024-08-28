@@ -9,15 +9,15 @@ import (
 )
 
 type SSENotifier struct {
-	mu         sync.Mutex
-	clients    map[string][]domain.OrderEventsSubscriber
-	eventCache map[string][]string
+	mu              sync.Mutex
+	clients         map[string][]domain.OrderEventsSubscriber
+	processedEvents map[string][]string
 }
 
 func NewSSENotifier() *SSENotifier {
 	return &SSENotifier{
-		clients:    make(map[string][]domain.OrderEventsSubscriber),
-		eventCache: make(map[string][]string),
+		clients:         make(map[string][]domain.OrderEventsSubscriber),
+		processedEvents: make(map[string][]string),
 	}
 }
 
@@ -25,7 +25,7 @@ func (n *SSENotifier) AddProcessedEvent(orderId string, event domain.OrderEvent)
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	n.eventCache[orderId] = append(n.eventCache[orderId], event.EventID)
+	n.processedEvents[orderId] = append(n.processedEvents[orderId], event.EventID)
 }
 
 func (n *SSENotifier) RegisterClient(orderID string, client domain.OrderEventsSubscriber) {
@@ -57,6 +57,7 @@ func (n *SSENotifier) startTimeout(orderID string, client domain.OrderEventsSubs
 				return
 			}
 
+			// Reset the timeout and propagate the event
 			timeout.Reset(client.Timeout)
 			client.EventChan <- event
 		}
@@ -82,7 +83,7 @@ func (n *SSENotifier) UnregisterClient(orderID string, client domain.OrderEvents
 	// Clean up if there are no more clients for the order
 	if len(n.clients[orderID]) == 0 {
 		delete(n.clients, orderID)
-		delete(n.eventCache, orderID)
+		delete(n.processedEvents, orderID)
 	}
 }
 
@@ -98,12 +99,12 @@ func (n *SSENotifier) Notify(order *domain.Order, event domain.OrderEvent) {
 			}
 		}
 
-		delete(n.eventCache, order.OrderID)
+		delete(n.processedEvents, order.OrderID)
 		return
 	}
 
 	for _, evt := range order.Events {
-		if !n.isEventCached(order.OrderID, evt) {
+		if !n.isEventProcessed(order.OrderID, evt) {
 			for _, client := range n.clients[order.OrderID] {
 				select {
 				case client.EventChan <- evt:
@@ -111,13 +112,13 @@ func (n *SSENotifier) Notify(order *domain.Order, event domain.OrderEvent) {
 				}
 			}
 
-			n.eventCache[order.OrderID] = append(n.eventCache[order.OrderID], evt.EventID)
+			n.processedEvents[order.OrderID] = append(n.processedEvents[order.OrderID], evt.EventID)
 		}
 	}
 }
 
-func (n *SSENotifier) isEventCached(orderID string, event domain.OrderEvent) bool {
-	for _, cachedEventID := range n.eventCache[orderID] {
+func (n *SSENotifier) isEventProcessed(orderID string, event domain.OrderEvent) bool {
+	for _, cachedEventID := range n.processedEvents[orderID] {
 		if cachedEventID == event.EventID {
 			return true
 		}

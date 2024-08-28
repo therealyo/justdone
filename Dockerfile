@@ -11,7 +11,9 @@ RUN go mod download
 
 COPY . .  
 
-RUN go build -o run ./... 
+RUN go install github.com/swaggo/swag/cmd/swag@latest
+
+RUN go build -o run ./cmd/server/main.go
 
 # Development stage
 FROM build as dev
@@ -23,10 +25,13 @@ COPY . .
 CMD ["air", "-c", ".air.toml"]
 
 # Production stage
-FROM scratch as prod
+FROM golang:1.23-alpine as prod
 
 WORKDIR /app
 
-COPY --from=build /app/run /app/run 
+RUN go install github.com/swaggo/swag/cmd/swag@latest
 
+COPY --from=build /app/run /app/run 
+COPY --from=build /app/docs /app/docs
+COPY --from=build /app/migrations /app/migrations
 CMD ["/app/run"]

@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=justdone
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  justdone:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prod
+    container_name: justdone
+    env_file:
+      - .env
+    environment:
+      - GOOSE_DRIVER=postgres
+      - GOOSE_DBSTRING=postgres://postgres:secret@postgres:5432/justdone?sslmode=disable
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
