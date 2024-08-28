@@ -22,6 +22,15 @@ type getOrderEventsHandler struct {
 	notifier domain.OrderObserver
 }
 
+// GetOrderEventsHandler godoc
+// @Summary      Stream order events
+// @Description  Stream events for an order using Server-Side Events (SSE).
+// @Tags         orders
+// @Accept       json
+// @Produce      text/event-stream
+// @Param        order_id  path   string  true  "ID of the order"
+// @Success      200  {object}  domain.OrderEvent  "Stream of order events"
+// @Router       /orders/{order_id}/events [get]
 func (h getOrderEventsHandler) handle(c *gin.Context) {
 	var req getOrderEventsRequest
 	if err := c.ShouldBindUri(&req); err != nil {

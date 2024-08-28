@@ -3,6 +3,7 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -17,8 +18,75 @@ func NewOrderRepository(db *sql.DB) OrderRepository {
 	return OrderRepository{db: db}
 }
 
+func (r *OrderRepository) buildQuery(filter *domain.OrderFilter) (string, []interface{}) {
+	query := `SELECT order_id, user_id, status, is_final, created_at, updated_at FROM orders`
+	var args []interface{}
+	var conditions []string
+	placeholderIndex := 1
+
+	if len(filter.Status) > 0 {
+		statusPlaceholders := make([]string, len(filter.Status))
+		for i, status := range filter.Status {
+			statusPlaceholders[i] = fmt.Sprintf("$%d", placeholderIndex)
+			args = append(args, status)
+			placeholderIndex++
+		}
+		conditions = append(conditions, fmt.Sprintf("status IN (%s)", strings.Join(statusPlaceholders, ",")))
+	}
+
+	if filter.UserID != "" {
+		conditions = append(conditions, fmt.Sprintf("user_id = $%d", placeholderIndex))
+		args = append(args, filter.UserID)
+		placeholderIndex++
+	}
+
+	if filter.IsFinal != nil {
+		conditions = append(conditions, fmt.Sprintf("is_final = $%d", placeholderIndex))
+		args = append(args, *filter.IsFinal)
+		placeholderIndex++
+	}
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	query += fmt.Sprintf(" ORDER BY %s %s", filter.SortBy, filter.SortOrder)
+
+	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", placeholderIndex, placeholderIndex+1)
+	args = append(args, filter.Limit, filter.Offset)
+
+	return query, args
+}
+
 func (r OrderRepository) GetMany(filter *domain.OrderFilter) ([]domain.Order, error) {
-	panic("unimplemented")
+	query, args := r.buildQuery(filter)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			fmt.Printf("error closing rows: %v\n", err)
+		}
+	}()
+
+	var orders []domain.Order
+
+	for rows.Next() {
+		var order domain.Order
+		if err := rows.Scan(&order.OrderID, &order.UserID, &order.Status, &order.IsFinal, &order.CreatedAt, &order.UpdatedAt); err != nil {
+			return nil, err
+		}
+		orders = append(orders, order)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return orders, nil
+
 }
 
 func (r OrderRepository) Get(orderID string) (*domain.Order, error) {

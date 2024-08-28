@@ -7,14 +7,14 @@ import (
 )
 
 type Order struct {
-	OrderID   string
-	UserID    string
-	Status    OrderStatus
-	IsFinal   bool
-	Events    []OrderEvent
-	LastEvent *OrderEvent
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	OrderID   string       `json:"order_id"`
+	UserID    string       `json:"user_id"`
+	Status    OrderStatus  `json:"status"`
+	IsFinal   bool         `json:"is_final"`
+	Events    []OrderEvent `json:"-"`
+	LastEvent *OrderEvent  `json:"-"`
+	CreatedAt time.Time    `json:"created_at"`
+	UpdatedAt time.Time    `json:"updated_at"`
 }
 
 func (o *Order) isValidSequence() bool {
@@ -38,7 +38,7 @@ func (o *Order) isValidSequence() bool {
 type OrderFilter struct {
 	Status    []OrderStatus
 	UserID    string
-	IsFinal   bool
+	IsFinal   *bool
 	Limit     int
 	Offset    int
 	SortBy    string
@@ -71,7 +71,7 @@ func WithOffset(offset int) FilterOption {
 	}
 }
 
-func WithIsFinal(isFinal bool) FilterOption {
+func WithIsFinal(isFinal *bool) FilterOption {
 	return func(f *OrderFilter) {
 		f.IsFinal = isFinal
 	}

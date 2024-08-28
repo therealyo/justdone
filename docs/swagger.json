@@ -4,6 +4,112 @@
         "contact": {}
     },
     "paths": {
+        "/orders": {
+            "get": {
+                "description": "Retrieve a list of orders with optional filtering and sorting.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Retrieve a list of orders",
+                "parameters": [
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "List of order statuses to filter by. Required if `is_final` is not provided.",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID of the user to filter orders by.",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of orders to return. Default is 10.",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset for pagination. Default is 0.",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Final status of the order. Required if `status` is not provided.",
+                        "name": "is_final",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field to sort by (created_at/updated_at). Default is created_at.",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order (asc/desc). Default is desc.",
+                        "name": "sort_order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Order"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/{order_id}/events": {
+            "get": {
+                "description": "Stream events for an order using Server-Side Events (SSE).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Stream order events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID of the order",
+                        "name": "order_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stream of order events",
+                        "schema": {
+                            "$ref": "#/definitions/domain.OrderEvent"
+                        }
+                    }
+                }
+            }
+        },
         "/webhooks/payments/orders": {
             "post": {
                 "description": "handle event from JustPay!",
@@ -40,6 +146,29 @@
         }
     },
     "definitions": {
+        "domain.Order": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "is_final": {
+                    "type": "boolean"
+                },
+                "order_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.OrderStatus"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.OrderEvent": {
             "type": "object",
             "properties": {

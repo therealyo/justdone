@@ -23,6 +23,21 @@ type getOrdersRequest struct {
 	SortOrder string   `form:"sort_order,default=desc"`
 }
 
+// GetOrdersHandler godoc
+// @Summary      Retrieve a list of orders
+// @Description  Retrieve a list of orders with optional filtering and sorting.
+// @Tags         orders
+// @Accept       json
+// @Produce      json
+// @Param        status     query     []string  false  "List of order statuses to filter by. Required if `is_final` is not provided."
+// @Param        user_id    query     string    false  "ID of the user to filter orders by."
+// @Param        limit      query     int       false  "Number of orders to return. Default is 10."
+// @Param        offset     query     int       false  "Offset for pagination. Default is 0."
+// @Param        is_final   query     bool      false  "Final status of the order. Required if `status` is not provided."
+// @Param        sort_by    query     string    false  "Field to sort by (created_at/updated_at). Default is created_at."
+// @Param        sort_order query     string    false  "Sort order (asc/desc). Default is desc."
+// @Success      200        {array}   domain.Order
+// @Router       /orders [get]
 func (h getOrdersHandler) handle(c *gin.Context) {
 	var req getOrdersRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
@@ -84,7 +99,7 @@ func (req getOrdersRequest) build() (*domain.OrderFilter, error) {
 	}
 
 	if req.IsFinal != nil {
-		filterOptions = append(filterOptions, domain.WithIsFinal(*req.IsFinal))
+		filterOptions = append(filterOptions, domain.WithIsFinal(req.IsFinal))
 	}
 
 	return domain.NewOrderFilter(filterOptions...), nil
