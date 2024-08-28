@@ -124,6 +124,8 @@ func (op *OrderProcessor) processEvent(event OrderEvent) error {
 	}
 
 	if order.isValidSequence() {
+
+		fmt.Println("Order is valid sequence", order.OrderID)
 		order.Status = lastEvent.OrderStatus
 		order.LastEvent = &lastEvent
 		order.UpdatedAt = lastEvent.UpdatedAt

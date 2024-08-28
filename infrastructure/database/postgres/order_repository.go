@@ -28,7 +28,7 @@ func (r OrderRepository) Get(orderID string) (*domain.Order, error) {
 		FROM orders o
 		LEFT JOIN order_events e ON o.order_id = e.order_id
 		WHERE o.order_id = $1
-		ORDER BY e.created_at ASC, e.event_id ASC
+		ORDER BY e.created_at ASC, e.event_id DESC
 	`
 
 	rows, err := r.db.Query(query, orderID)

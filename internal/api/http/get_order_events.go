@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -34,11 +35,6 @@ func (h getOrderEventsHandler) handle(c *gin.Context) {
 		return
 	}
 
-	if order != nil && order.IsFinal {
-		c.JSON(http.StatusOK, order.Events)
-		return
-	}
-
 	clientChan := make(chan domain.OrderEvent)
 	client := domain.OrderEventsSubscriber{
 		EventChan:  clientChan,
@@ -49,13 +45,43 @@ func (h getOrderEventsHandler) handle(c *gin.Context) {
 	h.notifier.RegisterClient(req.OrderID, client)
 	defer h.notifier.UnregisterClient(req.OrderID, client)
 
+	// Stream all current events regardless of order status
+	if order != nil {
+		fmt.Println("Order found", order.OrderID)
+		for _, event := range order.Events {
+			data, _ := json.Marshal(event)
+			fmt.Println("Sending event to client", string(data))
+			c.SSEvent("message", string(data))
+			c.Writer.Flush() // Ensure data is sent immediately
+		}
+
+		// If the order is in a final state, close the connection
+		if order.IsFinal {
+			fmt.Println("Order is final, closing connection")
+			return
+		}
+	}
+
+	fmt.Println("Starting stream")
+
 	c.Stream(func(w io.Writer) bool {
 		select {
-		case event := <-clientChan:
+		case <-c.Request.Context().Done():
+			fmt.Println("Client disconnected: close connection")
+			return false
+		case event, ok := <-clientChan:
+			if !ok {
+				fmt.Println("Client channel closed, stopping stream")
+				return false
+			}
 			data, _ := json.Marshal(event)
+			fmt.Println("Sending event to client", string(data))
 			c.SSEvent("message", string(data))
+			c.Writer.Flush() // Ensure data is sent immediately
 			return true
+
 		case <-client.Disconnect:
+			fmt.Println("Client timeout")
 			return false
 		}
 	})

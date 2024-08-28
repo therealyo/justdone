@@ -17,6 +17,8 @@ type Application struct {
 	Notifier domain.OrderObserver
 }
 
+const ORDER_FINALIZING_TIMEOUT = 30 * time.Second
+
 func New(config *config.Config) (*Application, error) {
 	db, err := postgres.New(config.Postgres.ConnectionString)
 	if err != nil {
@@ -31,7 +33,7 @@ func New(config *config.Config) (*Application, error) {
 		postgres.NewEventRepository(db),
 		sseNotifier,
 		inmemory.NewProcessedEvents(),
-		30*time.Second,
+		ORDER_FINALIZING_TIMEOUT,
 	)
 
 	return &Application{

@@ -13,6 +13,8 @@ import (
 	_ "github.com/therealyo/justdone/docs"
 )
 
+const CLIENT_TIMEOUT = 1 * time.Minute
+
 type Server struct {
 	app    *app.Application
 	router *gin.Engine
@@ -46,7 +48,7 @@ func (s *Server) Setup() (*Server, error) {
 
 	ordersGroup.GET(
 		":order_id/events",
-		newGetOrderEventsHandler(s.app.Orders, s.app.Notifier, 1*time.Minute).handle,
+		newGetOrderEventsHandler(s.app.Orders, s.app.Notifier, CLIENT_TIMEOUT).handle,
 	)
 	ordersGroup.GET(
 		"",
