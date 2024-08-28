@@ -45,6 +45,7 @@ func (h postEventHandler) handle(c *gin.Context) {
 		OrderStatus: domain.OrderStatus(req.OrderStatus),
 		CreatedAt:   req.CreatedAt,
 		UpdatedAt:   req.UpdatedAt,
+		IsFinal:     domain.OrderStatus(req.OrderStatus).IsFinal(),
 	})
 
 	switch {

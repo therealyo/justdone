@@ -18,6 +18,7 @@ type OrderRepository interface {
 type EventRepository interface {
 	Get(eventID string) (*OrderEvent, error)
 	Create(event OrderEvent) error
+	Update(event OrderEvent) error
 	Delete(eventID string) error
 }
 
@@ -26,9 +27,19 @@ type OrderEventsSubscriber struct {
 	Disconnect chan bool
 	Timeout    time.Duration
 }
+
+func NewOrderEventsSubscriber(timeout time.Duration) OrderEventsSubscriber {
+	return OrderEventsSubscriber{
+		EventChan:  make(chan OrderEvent, 1),
+		Disconnect: make(chan bool),
+		Timeout:    timeout,
+	}
+}
+
 type OrderObserver interface {
 	RegisterClient(orderID string, client OrderEventsSubscriber)
 	UnregisterClient(orderID string, client OrderEventsSubscriber)
+	AddProcessedEvent(orderID string, event OrderEvent)
 	Notify(order *Order, event OrderEvent)
 }
 
@@ -109,23 +120,22 @@ func (op *OrderProcessor) processEvent(event OrderEvent) error {
 		return order.Events[i].CreatedAt.Before(order.Events[j].CreatedAt)
 	})
 
-	lastEvent := order.Events[len(order.Events)-1]
-	if lastEvent.OrderStatus.isCancel() {
+	if event.OrderStatus.isCancel() {
 		order.IsFinal = true
-		order.Status = lastEvent.OrderStatus
-		order.LastEvent = &lastEvent
-		order.UpdatedAt = lastEvent.UpdatedAt
+		order.Status = event.OrderStatus
+		order.LastEvent = &event
+		order.UpdatedAt = event.UpdatedAt
 
 		if err := op.orderRepo.Save(order); err != nil {
 			return errors.Wrap(err, "save order")
 		}
-		op.observer.Notify(order, lastEvent)
+		op.observer.Notify(order, event)
 		return nil
 	}
 
+	lastEvent := order.Events[len(order.Events)-1]
 	if order.isValidSequence() {
-
-		fmt.Println("Order is valid sequence", order.OrderID)
+		// fmt.Println("Order is valid sequence", order.OrderID)
 		order.Status = lastEvent.OrderStatus
 		order.LastEvent = &lastEvent
 		order.UpdatedAt = lastEvent.UpdatedAt
@@ -165,7 +175,14 @@ func (op *OrderProcessor) waitAndFinalize(order *Order, lastEvent OrderEvent) {
 			fmt.Println("error saving order")
 			return
 		}
-		op.observer.Notify(finalOrder, lastEvent)
+
+		updatedEvent := lastEvent.Finalize()
+		if err := op.eventRepo.Update(*updatedEvent); err != nil {
+			fmt.Println("error updating event")
+			return
+		}
+
+		op.observer.Notify(finalOrder, *updatedEvent)
 	}
 }
 

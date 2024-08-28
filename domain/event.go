@@ -12,6 +12,12 @@ type OrderEvent struct {
 	IsFinal     bool        `json:"is_final"`
 }
 
+func (e *OrderEvent) Finalize() *OrderEvent {
+	e.IsFinal = true
+	e.UpdatedAt = time.Now()
+	return e
+}
+
 // func (e *OrderEvent) IsFinal() bool {
 // 	return
 // }

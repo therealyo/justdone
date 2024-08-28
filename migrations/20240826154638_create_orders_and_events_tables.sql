@@ -13,6 +13,7 @@ CREATE TABLE orders (
 CREATE TABLE order_events (
     event_id UUID PRIMARY KEY,
     order_id UUID NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
+    user_id UUID NOT NULL,
     order_status VARCHAR(50) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL,

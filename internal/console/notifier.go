@@ -22,6 +22,10 @@ func (c *ConsoleNotifier) Notify(order *domain.Order, event domain.OrderEvent) {
 	fmt.Printf("Order %s has been updated with status %s, isFinal: %t\n", order.OrderID, event.OrderStatus, order.IsFinal)
 }
 
+func (c *ConsoleNotifier) AddProcessedEvent(orderID string, event domain.OrderEvent) {
+	fmt.Printf("Order %s has been updated with status %s, isFinal: %t\n", orderID, event.OrderStatus, event.IsFinal)
+}
+
 func NewConsoleNotifier() *ConsoleNotifier {
 	return &ConsoleNotifier{}
 }

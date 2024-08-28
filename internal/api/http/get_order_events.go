@@ -35,7 +35,8 @@ func (h getOrderEventsHandler) handle(c *gin.Context) {
 		return
 	}
 
-	clientChan := make(chan domain.OrderEvent)
+	// Make buffered channel to avoid incorrect order of events
+	clientChan := make(chan domain.OrderEvent, 1)
 	client := domain.OrderEventsSubscriber{
 		EventChan:  clientChan,
 		Disconnect: make(chan bool),
@@ -45,17 +46,16 @@ func (h getOrderEventsHandler) handle(c *gin.Context) {
 	h.notifier.RegisterClient(req.OrderID, client)
 	defer h.notifier.UnregisterClient(req.OrderID, client)
 
-	// Stream all current events regardless of order status
 	if order != nil {
-		fmt.Println("Order found", order.OrderID)
 		for _, event := range order.Events {
-			data, _ := json.Marshal(event)
-			fmt.Println("Sending event to client", string(data))
-			c.SSEvent("message", string(data))
-			c.Writer.Flush() // Ensure data is sent immediately
+			if event.OrderStatus.Value() <= order.Status.Value() {
+				data, _ := json.Marshal(event)
+				h.notifier.AddProcessedEvent(req.OrderID, event)
+				c.SSEvent("message", string(data))
+				c.Writer.Flush()
+			}
 		}
 
-		// If the order is in a final state, close the connection
 		if order.IsFinal {
 			fmt.Println("Order is final, closing connection")
 			return
@@ -75,13 +75,16 @@ func (h getOrderEventsHandler) handle(c *gin.Context) {
 				return false
 			}
 			data, _ := json.Marshal(event)
-			fmt.Println("Sending event to client", string(data))
 			c.SSEvent("message", string(data))
-			c.Writer.Flush() // Ensure data is sent immediately
+			c.Writer.Flush()
+			if event.IsFinal {
+				fmt.Println("Order is final, closing connection")
+				return false
+			}
 			return true
 
 		case <-client.Disconnect:
-			fmt.Println("Client timeout")
+			fmt.Println("Client disconnected")
 			return false
 		}
 	})

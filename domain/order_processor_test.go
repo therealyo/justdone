@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -64,6 +65,15 @@ func (s *InMemoryStorageEvents) Create(event domain.OrderEvent) error {
 	return nil
 }
 
+func (s *InMemoryStorageEvents) Update(event domain.OrderEvent) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.events[event.EventID]; !exists {
+		return errors.New("event not found")
+	}
+	s.events[event.EventID] = event
+	return nil
+}
 func (s *InMemoryStorageEvents) Get(eventID string) (*domain.OrderEvent, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

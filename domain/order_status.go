@@ -22,6 +22,10 @@ func (status OrderStatus) isRefund() bool {
 	return status == GiveMyMoneyBack
 }
 
+func (status OrderStatus) IsFinal() bool {
+	return status.isCancel() || status.isRefund()
+}
+
 var orderStatusStrings = map[string]OrderStatus{
 	"cool_order_created":       CoolOrderCreated,
 	"sbu_verification_pending": SbuVerificationPending,
@@ -34,6 +38,18 @@ var orderStatusStrings = map[string]OrderStatus{
 
 func (os OrderStatus) String() string {
 	return string(os)
+}
+
+func (os OrderStatus) Value() int {
+	return map[OrderStatus]int{
+		CoolOrderCreated:       1,
+		SbuVerificationPending: 2,
+		ConfirmedByMayor:       3,
+		Chinazes:               4,
+		GiveMyMoneyBack:        5,
+		ChangedMyMind:          6,
+		Failed:                 7,
+	}[os]
 }
 
 func ParseOrderStatus(status string) (OrderStatus, error) {

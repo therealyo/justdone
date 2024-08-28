@@ -24,11 +24,11 @@ func (r OrderRepository) GetMany(filter *domain.OrderFilter) ([]domain.Order, er
 func (r OrderRepository) Get(orderID string) (*domain.Order, error) {
 	query := `
 		SELECT o.order_id, o.user_id, o.status, o.is_final, o.created_at, o.updated_at,
-		       e.event_id, e.order_status, e.created_at, e.updated_at, e.is_final
+		       e.event_id, e.user_id, e.order_status, e.created_at, e.updated_at, e.is_final
 		FROM orders o
 		LEFT JOIN order_events e ON o.order_id = e.order_id
 		WHERE o.order_id = $1
-		ORDER BY e.created_at ASC, e.event_id DESC
+		ORDER BY e.created_at ASC
 	`
 
 	rows, err := r.db.Query(query, orderID)
@@ -50,6 +50,7 @@ func (r OrderRepository) Get(orderID string) (*domain.Order, error) {
 			eventTime   sql.NullTime
 			updateTime  sql.NullTime
 			isFinal     sql.NullBool
+			userID      sql.NullString
 		)
 
 		if order == nil {
@@ -62,6 +63,7 @@ func (r OrderRepository) Get(orderID string) (*domain.Order, error) {
 				&order.CreatedAt,
 				&order.UpdatedAt,
 				&eventID,
+				&userID,
 				&orderStatus,
 				&eventTime,
 				&updateTime,
@@ -78,6 +80,7 @@ func (r OrderRepository) Get(orderID string) (*domain.Order, error) {
 				new(time.Time),
 				new(time.Time),
 				&eventID,
+				&userID,
 				&orderStatus,
 				&eventTime,
 				&updateTime,
@@ -91,6 +94,7 @@ func (r OrderRepository) Get(orderID string) (*domain.Order, error) {
 			event := domain.OrderEvent{
 				EventID:     eventID.String,
 				OrderID:     order.OrderID,
+				UserID:      userID.String,
 				OrderStatus: domain.OrderStatus(orderStatus.String),
 				CreatedAt:   eventTime.Time,
 				UpdatedAt:   updateTime.Time,
