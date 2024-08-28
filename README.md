@@ -8,6 +8,10 @@ git clone git@github.com:therealyo/justdone.git
 
 Run locally:
 
+```bash
+./scripts/start.sh
+```
+
 ## Documentation
 
 Link to endpoint documentation
